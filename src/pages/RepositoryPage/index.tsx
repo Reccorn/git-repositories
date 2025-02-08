@@ -7,6 +7,7 @@ import {
     mounted,
 } from 'features/repository-details/model'
 import { useParams } from 'react-router-dom'
+import { Loader } from 'shared/ui'
 
 export const RepositoryPage: React.FC = () => {
     const { name } = useParams<{ name: string }>()
@@ -21,11 +22,11 @@ export const RepositoryPage: React.FC = () => {
     }, [name, handleRepositoryNameChange, handleMounted])
 
     if (isLoading) {
-        return <div>Loading...</div>;
+        return <Loader />
     }
 
     if (!repository) {
-        return <div>Repository not found.</div>;
+        return <div>Repository not found.</div>
     }
 
     return (

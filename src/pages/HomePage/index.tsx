@@ -1,7 +1,7 @@
 import React from 'react'
 import { useUnit } from 'effector-react'
 import { RepositoryList } from 'features/repository/ui/RepositoryList'
-import { SearchInput, Pagination } from 'shared/ui'
+import {SearchInput, Pagination, Loader} from 'shared/ui'
 import {
     $repositories,
     $searchQuery,
@@ -36,7 +36,7 @@ export const HomePage: React.FC = () => {
                 placeholder="Search"
             />
             {isLoading ? (
-                <div>Loading...</div>
+                <Loader />
             ) : (
                 <>
                     <RepositoryList repositories={repositories} />

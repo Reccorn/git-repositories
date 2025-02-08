@@ -1,50 +1,53 @@
-import React from 'react';
-import { useUnit } from 'effector-react';
-import { RepositoryList } from 'features/repository/ui/RepositoryList';
-import { Pagination } from 'shared/ui/Pagination';
-import { SearchInput } from 'shared/ui/SearchInput';
+import React from 'react'
+import { useUnit } from 'effector-react'
+import { RepositoryList } from 'features/repository/ui/RepositoryList'
+import { SearchInput, Pagination } from 'shared/ui'
 import {
     $repositories,
     $searchQuery,
     $currentPage,
     $totalPages,
+    $hasPreviousPage,
     $isLoading,
     searchQueryChanged,
     pageChanged,
     useSyncUrl,
-} from 'features/repository/model/repositoryModel';
+} from 'features/repository/model/repositoryModel'
 
-export const HomePage = () => {
-    // Синхронизация с URL (включая mounted)
-    useSyncUrl();
+export const HomePage: React.FC = () => {
+    useSyncUrl()
 
-    // Подписка на сторы
-    const [repositories, searchQuery, currentPage, totalPages, isLoading] = useUnit([
+    const [repositories, searchQuery, currentPage, totalPages, hasPreviousPage, isLoading] = useUnit([
         $repositories,
         $searchQuery,
         $currentPage,
         $totalPages,
+        $hasPreviousPage,
         $isLoading,
-    ]);
+    ])
 
-    // Подписка на события
-    const [handleSearchQueryChange, handlePageChange] = useUnit([searchQueryChanged, pageChanged]);
+    const [handleSearchQueryChange, handlePageChange] = useUnit([searchQueryChanged, pageChanged])
 
     return (
         <div>
             <SearchInput
                 value={searchQuery}
                 onChange={handleSearchQueryChange}
-                placeholder="Search repositories..."
+                placeholder="Search"
             />
             {isLoading ? (
                 <div>Loading...</div>
             ) : (
                 <>
                     <RepositoryList repositories={repositories} />
-                    <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={handlePageChange} />
+                    <Pagination
+                        currentPage={currentPage}
+                        totalPages={totalPages}
+                        hasPreviousPage={hasPreviousPage}
+                        onPageChange={handlePageChange}
+                    />
                 </>
             )}
         </div>
-    );
-};
+    )
+}

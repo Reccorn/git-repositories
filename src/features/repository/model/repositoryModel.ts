@@ -1,53 +1,51 @@
-import { createStore, createEvent, createEffect, sample } from 'effector';
-import { useSearchParams } from 'react-router-dom';
-import { searchRepositories } from '../api';
-import { RepositoryEdge } from 'entities/repository/types';
-import { useEffect } from 'react';
+import { createStore, createEvent, createEffect, sample } from 'effector'
+import { useSearchParams } from 'react-router-dom'
+import { searchRepositories } from '../api'
+import { RepositoryEdge } from 'entities/repository/types'
+import { useEffect } from 'react'
 
-// События
-export const searchQueryChanged = createEvent<string>();
-export const pageChanged = createEvent<number>();
-export const mounted = createEvent();
+export const searchQueryChanged = createEvent<string>()
+export const pageChanged = createEvent<number>()
+export const mounted = createEvent()
 
-// Эффект для запроса репозиториев
 export const fetchRepositoriesFx = createEffect<
-    { query: string; cursor: string | null },
-    { edges: RepositoryEdge[]; repositoryCount: number; pageInfo: { endCursor: string | null } }
->(async ({ query, cursor }) => {
-    const data = await searchRepositories(query || 'is:public', 10, cursor || undefined);
+    { query: string; first?: number; after?: string; last?: number; before?: string },
+    { edges: RepositoryEdge[]; repositoryCount: number; pageInfo: { startCursor: string; endCursor: string; hasNextPage: boolean; hasPreviousPage: boolean } }
+>(async ({ query, first, after, last, before }) => {
+    const data = await searchRepositories(query || 'is:public', first, after, last, before)
     return {
-        edges: data.search.edges,
-        repositoryCount: data.search.repositoryCount,
-        pageInfo: data.search.pageInfo,
-    };
-});
+        edges: data.edges,
+        repositoryCount: data.repositoryCount,
+        pageInfo: data.pageInfo,
+    }
+})
 
-// Сторы
-export const $repositories = createStore<RepositoryEdge[]>([]);
-export const $searchQuery = createStore<string>('');
-export const $currentPage = createStore<number>(1);
-export const $totalPages = createStore<number>(1);
-export const $endCursor = createStore<string | null>(null);
-export const $isLoading = fetchRepositoriesFx.pending;
+export const $repositories = createStore<RepositoryEdge[]>([])
+export const $searchQuery = createStore<string>('')
+export const $currentPage = createStore<number>(1)
+export const $previousPage = createStore<number | null>(null)
+export const $totalPages = createStore<number>(1)
+export const $startCursor = createStore<string | null>(null)
+export const $endCursor = createStore<string | null>(null)
+export const $hasNextPage = createStore<boolean>(false)
+export const $hasPreviousPage = createStore<boolean>(false)
+export const $isLoading = fetchRepositoriesFx.pending
 
-// Обновление состояния
-$searchQuery.on(searchQueryChanged, (_, query) => query);
-$currentPage.on(pageChanged, (_, page) => page);
+$searchQuery.on(searchQueryChanged, (_, query) => query)
 
-// Логика синхронизации с URL
+$currentPage.on(pageChanged, (_, page) => page)
+
 export const useSyncUrl = () => {
-    const [searchParams, setSearchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams()
 
-    // Восстановление состояния из URL
     useEffect(() => {
-        const query = searchParams.get('search') || '';
-        const page = parseInt(searchParams.get('page') || '1', 10);
-        searchQueryChanged(query);
-        pageChanged(page);
-        mounted();
-    }, [searchParams]);
+        const query = searchParams.get('search') || ''
+        const page = parseInt(searchParams.get('page') || '1', 10)
+        searchQueryChanged(query)
+        pageChanged(page)
+        mounted()
+    }, [searchParams])
 
-    // Обновление URL при изменении состояния
     useEffect(() => {
         const params = new URLSearchParams();
 
@@ -62,26 +60,63 @@ export const useSyncUrl = () => {
         if (params.toString() !== searchParams.toString()) {
             setSearchParams(params);
         }
-    }, [$searchQuery.getState(), $currentPage.getState(), searchParams, setSearchParams]);
+    }, [$searchQuery.getState(), $currentPage.getState(), searchParams, setSearchParams])
 };
 
-// Логика для запроса данных
 sample({
-    clock: [searchQueryChanged, pageChanged, mounted], // Запуск при изменении поиска, страницы или монтировании
-    source: { query: $searchQuery, page: $currentPage, cursor: $endCursor },
-    fn: ({ query, page, cursor }) => {
-        // Если страница изменилась, используем текущий курсор
-        return {
-            query,
-            cursor: page === 1 ? null : cursor, // Сброс курсора для первой страницы
-        };
+    clock: [searchQueryChanged, pageChanged, mounted],
+    source: { query: $searchQuery, currentPage: $currentPage, previousPage: $previousPage },
+    fn: ({ query, currentPage, previousPage }) => {
+        if (previousPage === null) {
+            return {
+                query,
+                first: 10,
+                after: undefined,
+                last: undefined,
+                before: undefined,
+            };
+        } else if (previousPage > currentPage) {
+            return {
+                query,
+                last: 10,
+                before: $startCursor.getState() || undefined,
+                first: undefined,
+                after: undefined,
+            };
+        } else if (previousPage < currentPage) {
+            return {
+                query,
+                first: 10,
+                after: $endCursor.getState() || undefined,
+                last: undefined,
+                before: undefined,
+            };
+        } else {
+            return {
+                query,
+                first: 10,
+                after: undefined,
+                last: undefined,
+                before: undefined,
+            };
+        }
     },
     target: fetchRepositoriesFx,
-});
+})
 
-// Обновление данных после запроса
-$repositories.on(fetchRepositoriesFx.doneData, (_, result) => result.edges);
+$repositories.on(fetchRepositoriesFx.doneData, (_, result) => result.edges)
 $totalPages.on(fetchRepositoriesFx.doneData, (_, result) =>
     Math.min(Math.ceil(result.repositoryCount / 10), 10)
-);
-$endCursor.on(fetchRepositoriesFx.doneData, (_, result) => result.pageInfo.endCursor);
+)
+
+$previousPage.on(fetchRepositoriesFx.doneData, () => {
+    return $currentPage.getState()
+});
+
+$startCursor.on(fetchRepositoriesFx.doneData, (_, result) => result.pageInfo.startCursor)
+
+$endCursor.on(fetchRepositoriesFx.doneData, (_, result) => result.pageInfo.endCursor)
+
+$hasNextPage.on(fetchRepositoriesFx.doneData, (_, result) => result.pageInfo.hasNextPage)
+
+$hasPreviousPage.on(fetchRepositoriesFx.doneData, (_, result) => result.pageInfo.hasPreviousPage)

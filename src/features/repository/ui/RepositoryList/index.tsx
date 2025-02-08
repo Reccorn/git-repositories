@@ -24,8 +24,13 @@ export const RepositoryList: React.FC<RepositoryListProps> = ({ repositories }) 
                         <span>⭐ {node.stargazerCount}</span>
                         <span>Last updated: {new Date(node.updatedAt).toLocaleDateString()}</span>
                     </div>
+                    <div className={styles.link}>
+                        <a href={node.url} target="_blank" rel="noopener noreferrer">
+                            Visit on GitHub
+                        </a>
+                    </div>
                     <div className={styles.owner}>
-                        <img src={node.owner.avatarUrl} alt={node.owner.login} className={styles.avatar} />
+                        <img src={node.owner.avatarUrl} alt={node.owner.login} className={styles.avatar}/>
                         <a href={`https://github.com/${node.owner.login}`} target="_blank" rel="noopener noreferrer">
                             {node.owner.login}
                         </a>
